@@ -5,6 +5,23 @@
   Builds a fully-bootable USB with integrated setup scripts and README
 #>
 
+# ===============================================================
+# ARC-AIO Bootable USB Creator (auto-elevate + exFAT fallback)
+# ===============================================================
+
+# --- Auto-elevate if not admin ---
+$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Host "🔒 Relaunching as Administrator..."
+    Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    exit
+}
+
+# --- Temporarily bypass execution policy ---
+if ((Get-ExecutionPolicy) -ne 'Bypass') {
+    Set-ExecutionPolicy Bypass -Scope Process -Force
+}
+
 $ErrorActionPreference = 'Stop'
 Write-Host "`n=== ARC-AIO USB Creator ===`n"
 
@@ -35,15 +52,17 @@ if (-not (Test-Path $UbuntuIso)) {
 # --- Optional Windows ISO ---
 $AddWin = Read-Host "Include Windows 11 Pro ISO? (y/n)"
 if ($AddWin -eq 'y') {
-    $LocalWin = Read-Host "Use local Windows 11 ISO? (y/n)"
-    if ($LocalWin -eq 'y') {
-        $WinIso = Read-Host "Enter full path to Windows 11 ISO file"
-        if (-not (Test-Path $WinIso)) { Write-Error "Windows ISO not found."; exit }
-    } else {
-        Write-Host "Downloading Windows 11 Pro ISO..."
-        $WinIso = "$ScriptRoot\Win11_24H2_English_x64.iso"
-        $WinUrl = "https://software-download.microsoft.com/db/Win11_24H2_English_x64.iso"
-        Invoke-WebRequest -Uri $WinUrl -OutFile $WinIso -UseBasicParsing
+    $WinIso = "$ScriptRoot\Win11_25H2_EnglishInternational_x64.iso"
+    if (-not (Test-Path $WinIso)) {
+        $LocalWin = Read-Host "Use local Windows 11 ISO? (y/n)"
+        if ($LocalWin -eq 'y') {
+            $WinIso = Read-Host "Enter full path to Windows 11 ISO file"
+            if (-not (Test-Path $WinIso)) { Write-Error "Windows ISO not found."; exit }
+        } else {
+            Write-Host "Downloading Windows 11 Pro ISO..."
+            $WinUrl = "https://software-download.microsoft.com/db/Win11_24H2_English_x64.iso"
+            Invoke-WebRequest -Uri $WinUrl -OutFile $WinIso -UseBasicParsing
+        }
     }
 }
 
@@ -53,7 +72,13 @@ $DiskNum = (Get-Partition -DriveLetter $UsbDrive).DiskNumber
 Get-Disk -Number $DiskNum | Set-Disk -IsReadOnly $false
 Get-Disk -Number $DiskNum | Clear-Disk -RemoveData -Confirm:$false
 New-Partition -DiskNumber $DiskNum -UseMaximumSize -AssignDriveLetter | Out-Null
-Format-Volume -DriveLetter $UsbDrive -FileSystem FAT32 -NewFileSystemLabel "ARC-AIO" -Force
+$SizeGB = [math]::Round((Get-Volume -DriveLetter $UsbDrive).SizeRemaining / 1GB,2)
+if ($SizeGB -gt 32) {
+    Write-Host "Large drive detected ($SizeGB GB) → using exFAT..."
+    Format-Volume -DriveLetter $UsbDrive -FileSystem exFAT -NewFileSystemLabel "ARC-AIO" -Force
+} else {
+    Format-Volume -DriveLetter $UsbDrive -FileSystem FAT32 -NewFileSystemLabel "ARC-AIO" -Force
+}
 
 # --- Mount Ubuntu ISO and copy base files ---
 Write-Host "Mounting Ubuntu ISO..."
