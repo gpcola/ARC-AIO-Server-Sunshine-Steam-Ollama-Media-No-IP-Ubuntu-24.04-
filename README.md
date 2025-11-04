@@ -1,341 +1,163 @@
+# ARC-AIO Server  
+### Ubuntu 24.04 + Windows 11 Dual Boot | AI • Game Streaming • Media
 
-# ARC-AIO Server — Sunshine · Steam · Ollama · Media · No-IP (Ubuntu 24.04.1)
-
-
-
-A complete automation stack for building an Intel Arc-powered home server:
-
-- Game streaming via **Sunshine + Steam**
-
-- Local AI models via **Ollama**
-
-- Web + FTP access via **Apache + vsftpd**
-
-- Dynamic DNS via **No-IP**
-
-- Hardware monitoring via **lm-sensors + node_exporter**
-
-- GPU mode toggling (AI/Game)
-
-- Docker + NVIDIA Container Toolkit pre-installed
-
-- Optimized for low-latency performance
-
-
+A complete hybrid workstation environment for **AI inference, game streaming, and media serving**,  
+powered by Ubuntu 24.04 Server and a lean Windows 11 Pro installation.
 
 ---
 
+## 🧭 Overview
 
+**Hardware Baseline**
 
-## 📦 Directory Layout
-
-\\\
-
-setup/
-
-├── setup_all.sh
-
-├── 00_prep.sh
-
-├─── 01_base_install.sh
-
-├─── 02_services_install.sh
-
-├─── 03_monitoring_setup.sh
-
-├─── 04_gpu_modes.sh
-
-├── 05_optimisations.sh
-
-├─── configure_media_drive.sh
-
-├── noip.conf (optional, contains credentials)
-
-└── README_1LG.md
-
-\\\
-
-
+| Component | Example |
+|------------|----------|
+| CPU | Intel Core i5-12400 (12th Gen) |
+| GPU 1 | Intel Arc B580 (primary for AI & games) |
+| GPU 2 | Intel UHD 770 iGPU (media/transcode) |
+| RAM | 64 GB DDR5-6000 CL30 |
+| Network | Mellanox QSFP+ 40 Gb Dual NIC + 10 Gb SFP+ Switch |
+| Storage | 1 TB NVMe + 10 TB HDD |
 
 ---
 
+## 🐧 Ubuntu 24.04 Server
 
-
-## 🧰 Installation Steps
-
-
-
-1. **Prepare Ventoy USB**
-
-   - Flash Ventoy to your drive.
-
-   - Download \ubuntu-24.04.1-live-server-amd64.iso\
-
-     from [releases.ubuntu.com/24.04.1](https://releases.ubuntu.com/24.04.1)
-
-   - Copy the ISO and \setup/\ folder to the root of the USB.
-
-
-
-2. **Boot and Run**
-
-   - Boot your target machine from the USB.
-
-   - Choose the ISO in Ventoy’s menu.
-
-   - When in the live shell, run:
-
-     \\\ash
-
-     sudo bash /cdrom/setup/setup_all.sh
-
-     \\\
-
-
-
-3. **Logs**
-
-   - Logs are saved to \/var/log/1lg_install.log\
-
-
-
-4. **Primary User**
-
-   - Default user: \gp\
-
-   - Root SSH login: **disabled**
-
-   - Use \sudo\ for administration.
-
-
+| Feature | Description |
+|----------|-------------|
+| **Ollama + local LLMs** | GPU-accelerated AI inference |
+| **Sunshine Server** | Game-streaming host (Moonlight-compatible) |
+| **qBittorrent** | Headless torrent + VPN ready |
+| **Jellyfin** | DLNA + browser-based media library |
+| **No-IP DDNS** | Dynamic DNS for public reachability |
+| **LibreHardwareMonitor Bridge** | Temperature dashboard |
+| **Netdata + Glances + Node Exporter** | Real-time monitoring stack |
+| **GPU Mode Switcher** | AI / Game / Balanced toggle (Arc ⇄ iGPU) |
+| **Media Drive Setup** | `/srv/media` and `/srv/llm_models` shares |
+| **System Optimisations** | Tuned, zRAM, BBR, noatime, low-latency kernel |
 
 ---
 
+## 🪟 Windows 11 Pro (dual-boot)
 
+Purpose-built for **Steam + Sunshine** streaming only.  
+All telemetry, bloatware, and background tasks removed.
 
-## 🌍 No-IP DDNS Configuration
+**Installed Automatically**
 
+- Steam  
+- Sunshine (latest release)  
+- Intel Arc GPU drivers  
+- VC++ / .NET / DirectX runtimes  
 
+**Performance Tweaks**
 
-The installer looks for a file named **\
-oip.conf\** in the same folder as your setup scripts.  
-
-Example:
-
-
-
-\\\ash
-
-USERNAME="your_noip_email_or_username"
-
-PASSWORD="your_noip_password"
-
-HOSTNAME="your_hostname.ddns.net"
-
-\\\
-
-
-
-The script reads these values and runs:
-
-\\\ash
-
-sudo noip2 -C -u "" -p "" -U 30 -Y -H ""
-
-\\\
-
-
-
-To change them later:
-
-\\\ash
-
-sudo nano /etc/noip2.conf
-
-sudo systemctl restart noip2
-
-\\\
-
-
-
-⚠️ **Security Tip:** Keep \
-oip.conf\ private and never commit it to public repositories.
-
-
+- Ultimate Performance power plan  
+- Disabled updates, Cortana, Widgets, FeedbackHub  
+- Minimal services set (no SysMain, Search, DiagTrack, etc.)  
+- Visual effects off, animations disabled  
+- Firewall rules for Steam & Sunshine  
 
 ---
 
+## 🗂️ Folder Layout
 
-
-## 🎮 GPU Mode Toggle
-
-
-
-Switch between workloads easily:
-
-
-
-\\\ash
-
-sudo /usr/local/bin/04_gpu_modes.sh ai
-
-sudo /usr/local/bin/04_gpu_modes.sh game
-
-sudo /usr/local/bin/04_gpu_modes.sh status
-
-\\\
-
-
-
-- **AI Mode:** starts Ollama, pauses Sunshine & Steam  
-
-- **Game Mode:** pauses AI tasks, starts Sunshine & Steam  
-
-- Auto-restores AI mode after Steam closes.
-
-
+```
+/
+├─ setup_all.sh
+├─ 00_prep.sh
+├─ 01_base_install.sh
+├─ 02_services_install.sh
+├─ 03_monitoring_setup.sh
+├─ 04_gpu_modes.sh
+├─ 05_optimisations.sh
+├─ configure_media_drive.sh
+├─ Make-BootUSB_Ubuntu.ps1
+├─ README.md
+└─ windows/
+   ├─ win00_restorepoint.ps1
+   ├─ win01_power_plan.ps1
+   ├─ win02_debloat.ps1
+   ├─ win03_services.ps1
+   ├─ win04_visuals.ps1
+   ├─ win05_runtimes.ps1
+   ├─ win06_apps.ps1
+   ├─ win07_firewall.ps1
+   ├─ win08_updates.ps1
+   ├─ win99_summary.ps1
+   └─ run_all_windows.ps1
+```
 
 ---
 
+## ⚙️ USB Creation (Windows)
 
+1. Plug in a USB ≥ 16 GB.  
+2. Open PowerShell (Admin).  
+3. Run:
 
-## 📊 Monitoring and Dashboard
+   ```powershell
+   Set-ExecutionPolicy Bypass -Scope Process -Force
+   .\Make-BootUSB_Ubuntu.ps1
+   ```
 
+4. Confirm the target drive when prompted.  
+   - Ubuntu ISO downloads automatically.  
+   - Optional Windows 11 ISO (local or download).  
+   - All scripts + this README copied automatically.
 
-
-- Metrics served on **\http://<server-ip>:8085/metrics\**
-
-- JSON snapshot at \/var/log/hwmon/latest.json\
-
-- Helper command:
-
-  \\\ash
-
-  sudo hwmon-to-json.sh
-
-  \\\
-
-
-
----
-
-
-
-## 🧩 Post-Install: Media Drive Setup
-
-
-
-After installation, run:
-
-\\\ash
-
-sudo bash /setup/configure_media_drive.sh
-
-\\\
-
-
-
-This script:
-
-- Detects your large HDD  
-
-- Formats it (optional, confirmed interactively)  
-
-- Mounts it at \/mnt/storage\  
-
-- Creates \/mnt/storage/llms\ for Ollama models  
-
-- Updates \/etc/fstab\ automatically
-
-
+Boot the machine from the USB to install Ubuntu first,  
+then reboot into Windows and run `windows\run_all_windows.ps1`.
 
 ---
 
+## 🚀 Post-Install Commands
 
+**Ubuntu**
+```bash
+sudo bash /cdrom/setup/setup_all.sh
+sudo /opt/modes/04_gpu_modes.sh game     # or ai / balanced
+```
 
-## ⚙️ System Optimizations
-
-Applied automatically:
-
-- CPU governor → \performance\
-
-- I/O scheduler → \mq-deadline\
-
-- TCP congestion control → \br\
-
-- Disabled hibernation and snapd for lean operation.
-
-
+**Windows**
+```powershell
+cd "C:\AIO_Setup\windows"
+.\run_all_windows.ps1
+```
 
 ---
 
+## 🌐 Browser-Accessible Services
 
-
-## 🧠 Default Ports
-
-| Service | Port | Notes |
-
-|----------|------|-------|
-
-| SSH | 22 | \gp\ user only |
-
-| HTTP | 80 | Apache |
-
-| HTTPS | 443 | Apache SSL |
-
-| FTP | 21 | vsftpd |
-
-| Sunshine Stream | 47984–48010/udp | |
-
-| Node Exporter | 8085 | Metrics + JSON Proxy |
-
-
+| Service | URL | Purpose |
+|----------|-----|----------|
+| **Sunshine Dashboard** | https://<server-ip>:47990 | Manage game streaming sessions |
+| **Jellyfin Media Server** | http://<server-ip>:8096 | Stream local media library |
+| **Glances Web UI** | http://<server-ip>:61208 | Lightweight system monitor |
+| **Netdata Dashboard** | http://<server-ip>:19999 | Full-stack performance graphs |
+| **Node Exporter** | http://<server-ip>:9100/metrics | Prometheus metrics endpoint |
+| **qBittorrent Web UI** | http://<server-ip>:8080 | Download manager |
+| **LibreHardwareMonitor Bridge** | http://<server-ip>:9525 | Temperature & sensor telemetry |
+| **Samba Media Share** | \\\\<server-ip>\\Media | Network file access |
 
 ---
 
+## 🧠 Tips
 
-
-## 🔒 Firewall (UFW)
-
-Enabled with rules for all required services.  
-
-You can check with:
-
-\\\ash
-
-sudo ufw status
-
-\\\
-
-
+- **GPU Mode Switch**:  
+  `sudo /opt/modes/04_gpu_modes.sh game|ai|balanced`
+- **No-IP Update**:  
+  Edit `/etc/no-ip2.conf` and run `sudo systemctl restart noip2`.
+- **Logs**:  
+  All stages write to `/var/log/00–05_*.log`.
+- **Windows Restore**:  
+  Use restore point `Pre-AIO-Debloat`.
 
 ---
 
+## 🗾 Credits
 
-
-## 📚 Logs and Maintenance
-
-- Setup log: \/var/log/1lg_install.log\
-
-- GPU mode log: \/var/log/gpu_mode.log\
-
-- Hardware metrics: \/var/log/hwmon/latest.json\
-
-
-
-To update services:
-
-\\\ash
-
-sudo apt update && sudo apt upgrade -y
-
-\\\
-
-
-
----
-
-
-
-**Made for Ubuntu 24.04.1 — Intel Arc + Z790 + 64GB RAM**
+Built for ARC B580 hybrid servers by  
+**Gail Trueman / 1LG Digital**  
+[GitHub Repo → gpcola/ARC-AIO-Server-Sunshine-Steam-Ollama-Media-No-IP-Ubuntu-24.04-](https://github.com/gpcola/ARC-AIO-Server-Sunshine-Steam-Ollama-Media-No-IP-Ubuntu-24.04-)
 

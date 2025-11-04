@@ -1,52 +1,89 @@
-#!/usr/bin/env bash
-# =============================================================================
-# configure_media_drive.sh
-# Post-install helper for ARC-AIO Server
-# Detects large drive, formats and mounts to /mnt/storage and /mnt/storage/llms
-# =============================================================================
+#!/bin/bash
+# ==============================================================
+# configure_media_drive.sh — Storage, shares & mount setup
+# ==============================================================
 
-set -euo pipefail
+set -e
+echo "==> Configuring media and model storage drives..."
 
-echo "==> Configuring media drive..."
+# --- Detect drives ---
+echo "==> Detecting non-system drives..."
+lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT | grep -v "loop"
 
-read -rp "List available disks? [Y/n]: " ans
-[[ "${ans,,}" != "n" ]] && lsblk -o NAME,SIZE,MODEL,MOUNTPOINT
+# Ask for target drive
+read -rp "Enter the device name for your media drive (e.g. sdb, sdc): " DRIVE
 
-read -rp "Enter device name for the 10TB drive (e.g. sdb): " DEV
-DEV_PATH="/dev/${DEV}"
-
-if ! [ -b "$DEV_PATH" ]; then
-  echo "Device $DEV_PATH not found. Aborting."
-  exit 1
+# Validate
+if [ ! -b "/dev/$DRIVE" ]; then
+    echo "❌ Drive /dev/$DRIVE not found. Exiting."
+    exit 1
 fi
 
-read -rp "Format drive $DEV_PATH as ext4? [y/N]: " format
-if [[ "${format,,}" == "y" ]]; then
-  echo "Creating ext4 filesystem..."
-  mkfs.ext4 -F "$DEV_PATH"
+# Ask for confirmation
+read -rp "Format /dev/$DRIVE and create /srv/media + /srv/llm_models? (y/N): " CONFIRM
+if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
+    echo "==> Formatting /dev/$DRIVE as ext4..."
+    umount "/dev/$DRIVE"* || true
+    mkfs.ext4 -F "/dev/$DRIVE"
+else
+    echo "==> Skipping format. Assuming it already contains data."
 fi
 
-# Create mount point
-mkdir -p /mnt/storage/llms
-mount "$DEV_PATH" /mnt/storage
+# --- Create mount points ---
+mkdir -p /srv/media /srv/llm_models
 
-# Add to fstab for persistence
-UUID=$(blkid -s UUID -o value "$DEV_PATH")
-echo "UUID=$UUID /mnt/storage ext4 defaults,noatime 0 2" >>/etc/fstab
-
-# Ensure permissions
-chown -R gp:gp /mnt/storage
-chmod -R 755 /mnt/storage
-
-# Optional Ollama model path reconfiguration
-if systemctl is-active --quiet ollama; then
-  echo "Moving Ollama model storage to /mnt/storage/llms..."
-  systemctl stop ollama
-  mkdir -p /mnt/storage/llms
-  chown gp:gp /mnt/storage/llms
-  ln -sf /mnt/storage/llms /usr/share/ollama/models
-  systemctl start ollama
+# --- Get UUID and update fstab ---
+UUID=$(blkid -s UUID -o value /dev/$DRIVE)
+if [ -z "$UUID" ]; then
+    echo "❌ Could not retrieve UUID for /dev/$DRIVE."
+    exit 1
 fi
 
-echo "Drive configured and mounted at /mnt/storage"
-df -h | grep /mnt/storage
+# Add fstab entries if missing
+if ! grep -q "$UUID" /etc/fstab; then
+cat <<EOF >> /etc/fstab
+UUID=$UUID /srv/media ext4 defaults,noatime 0 2
+/srv/media/llm /srv/llm_models none bind 0 0
+EOF
+fi
+
+# --- Mount now ---
+mount -a
+
+# --- Fix permissions ---
+chown -R gp:gp /srv/media /srv/llm_models
+chmod -R 775 /srv/media /srv/llm_models
+
+# --- Samba consistency check ---
+if grep -q "\[Media\]" /etc/samba/smb.conf; then
+    echo "✅ Samba share already exists."
+else
+    cat <<'EOF' >>/etc/samba/smb.conf
+
+[Media]
+path = /srv/media
+browsable = yes
+writable = yes
+guest ok = yes
+read only = no
+create mask = 0777
+directory mask = 0777
+EOF
+    systemctl restart smbd
+fi
+
+# --- Jellyfin library auto-link ---
+if systemctl is-active --quiet jellyfin; then
+    echo "==> Linking Jellyfin library to /srv/media..."
+    mkdir -p /var/lib/jellyfin/media
+    ln -s /srv/media /var/lib/jellyfin/media/library 2>/dev/null || true
+    systemctl restart jellyfin
+fi
+
+echo ""
+echo "---------------------------------------------------------------"
+echo " ✅ Media drive configuration complete!"
+echo " - Mounted at /srv/media and /srv/llm_models"
+echo " - Added to /etc/fstab for persistence"
+echo " - Samba share active on network"
+echo "---------------------------------------------------------------"

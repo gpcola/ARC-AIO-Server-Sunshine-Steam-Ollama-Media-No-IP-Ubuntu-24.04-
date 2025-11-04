@@ -1,77 +1,84 @@
-#!/usr/bin/env bash
-# =============================================================================
-# 03_monitoring_setup.sh
-# Installs and configures hardware monitoring for ARC-AIO Server
-# Uses lm-sensors + node_exporter + JSON proxy endpoint (:8085)
-# =============================================================================
+#!/bin/bash
+# ==============================================================
+# 03_monitoring_setup.sh — Monitoring & telemetry setup
+# ==============================================================
 
-set -euo pipefail
-
+set -e
 echo "==> Setting up monitoring stack..."
 
-# ---------------------------------------------------------------------------
-# lm-sensors
-# ---------------------------------------------------------------------------
-echo "==> Installing lm-sensors..."
-apt-get update -y
-apt-get install -y lm-sensors jq
+# --- Install dependencies ---
+apt install -y lm-sensors hddtemp nvme-cli smartmontools curl wget python3-pip jq
 
-# Auto-detect sensors
-yes | sensors-detect --auto
-systemctl restart kmod || true
+# --- Sensors configuration ---
+echo "==> Configuring hardware sensors..."
+yes | sensors-detect || true
+systemctl enable kmod
 
-# ---------------------------------------------------------------------------
-# node_exporter
-# ---------------------------------------------------------------------------
-echo "==> Installing Prometheus node_exporter..."
-useradd --no-create-home --shell /bin/false nodeusr || true
+# --- Glances (CLI dashboard) ---
+echo "==> Installing Glances..."
+pip3 install glances[web] bottle psutil
+cat <<'EOF' >/etc/systemd/system/glances.service
+[Unit]
+Description=Glances - Web-based monitoring
+After=network.target
 
-NODE_EXPORTER_VERSION="1.8.1"
+[Service]
+ExecStart=/usr/local/bin/glances -w
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable glances
+systemctl start glances
+
+# --- Netdata (real-time web monitoring) ---
+echo "==> Installing Netdata..."
+bash <(curl -Ss https://my-netdata.io/kickstart.sh) --disable-telemetry
+systemctl enable netdata
+
+# --- Node Exporter (for Prometheus / optional) ---
+echo "==> Installing Node Exporter..."
+useradd -rs /bin/false node_exporter || true
 cd /tmp
-wget https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz
-tar -xzf node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz
-cp node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64/node_exporter /usr/local/bin/
-chown nodeusr:nodeusr /usr/local/bin/node_exporter
-rm -rf node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64*
+VER=$(curl -s https://api.github.com/repos/prometheus/node_exporter/releases/latest | jq -r '.tag_name')
+wget -q "https://github.com/prometheus/node_exporter/releases/download/${VER}/node_exporter-${VER#v}.linux-amd64.tar.gz"
+tar -xzf node_exporter-*.tar.gz
+cp node_exporter-*/node_exporter /usr/local/bin/
 
-# Create systemd service
-cat >/etc/systemd/system/node_exporter.service <<EOF
+cat <<'EOF' >/etc/systemd/system/node_exporter.service
 [Unit]
 Description=Prometheus Node Exporter
 After=network.target
 
 [Service]
-User=nodeusr
-ExecStart=/usr/local/bin/node_exporter --web.listen-address=":8085"
-Restart=always
+User=node_exporter
+ExecStart=/usr/local/bin/node_exporter
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
 EOF
-
 systemctl daemon-reload
 systemctl enable node_exporter
 systemctl start node_exporter
 
-# ---------------------------------------------------------------------------
-# JSON proxy helper
-# ---------------------------------------------------------------------------
-echo "==> Creating JSON proxy helper..."
-mkdir -p /usr/local/bin
-cat >/usr/local/bin/hwmon-to-json.sh <<'EOF'
-#!/usr/bin/env bash
-# Converts node_exporter /metrics to JSON-style key:value pairs
-curl -s http://localhost:8085/metrics \
-  | grep -E 'node_hwmon|node_cpu_temperature|node_memory|node_disk' \
-  | awk -F' ' '{printf "{\"metric\":\"%s\",\"value\":%s}\n", $1, $2}' \
-  | jq -s .
+# --- Disk SMART and NVMe monitoring ---
+systemctl enable smartd
+systemctl start smartd
+
+# --- Custom dashboard note ---
+cat <<'EOF' >/root/MONITORING_INFO.txt
+Access monitoring dashboards:
+
+Glances Web: http://<server_ip>:61208
+Netdata:      http://<server_ip>:19999
+NodeExporter: http://<server_ip>:9100/metrics
 EOF
-chmod +x /usr/local/bin/hwmon-to-json.sh
 
-# Log location
-mkdir -p /var/log/hwmon
-ln -sf /usr/local/bin/hwmon-to-json.sh /usr/local/bin/update-hwmon-log
-(crontab -l 2>/dev/null; echo "*/5 * * * * /usr/local/bin/hwmon-to-json.sh > /var/log/hwmon/latest.json") | crontab -
+# --- Cleanup ---
+apt autoremove -y && apt clean
 
-echo "Monitoring stack installed. Metrics at http://<server-ip>:8085/metrics"
-echo "JSON snapshot available at /var/log/hwmon/latest.json"
+echo "==> Monitoring stack setup complete."
+echo "Proceed to 04_gpu_modes.sh for GPU toggling and performance management."
