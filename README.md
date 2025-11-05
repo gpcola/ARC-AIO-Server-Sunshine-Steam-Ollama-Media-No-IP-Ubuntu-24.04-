@@ -1,163 +1,99 @@
-# ARC-AIO Server  
-### Ubuntu 24.04 + Windows 11 Dual Boot | AI • Game Streaming • Media
+# ARC-AIO Bootable USB Creator
 
-A complete hybrid workstation environment for **AI inference, game streaming, and media serving**,  
-powered by Ubuntu 24.04 Server and a lean Windows 11 Pro installation.
-
----
-
-## 🧭 Overview
-
-**Hardware Baseline**
-
-| Component | Example |
-|------------|----------|
-| CPU | Intel Core i5-12400 (12th Gen) |
-| GPU 1 | Intel Arc B580 (primary for AI & games) |
-| GPU 2 | Intel UHD 770 iGPU (media/transcode) |
-| RAM | 64 GB DDR5-6000 CL30 |
-| Network | Mellanox QSFP+ 40 Gb Dual NIC + 10 Gb SFP+ Switch |
-| Storage | 1 TB NVMe + 10 TB HDD |
+## Overview
+This tool creates a **bootable USB drive** that installs and configures the **ARC-AIO Server**, including:
+- Ubuntu 24.04.3 Server (downloaded automatically if not present)
+- Optional Windows 11 Pro 24H2 ISO (also auto-downloaded if missing)
+- Preloaded setup scripts and post-install configuration tools
+- Automatic exFAT formatting for large drives
+- Full compatibility with high-capacity USB drives (up to 2TB)
 
 ---
 
-## 🐧 Ubuntu 24.04 Server
+## ✨ Key Features
 
-| Feature | Description |
-|----------|-------------|
-| **Ollama + local LLMs** | GPU-accelerated AI inference |
-| **Sunshine Server** | Game-streaming host (Moonlight-compatible) |
-| **qBittorrent** | Headless torrent + VPN ready |
-| **Jellyfin** | DLNA + browser-based media library |
-| **No-IP DDNS** | Dynamic DNS for public reachability |
-| **LibreHardwareMonitor Bridge** | Temperature dashboard |
-| **Netdata + Glances + Node Exporter** | Real-time monitoring stack |
-| **GPU Mode Switcher** | AI / Game / Balanced toggle (Arc ⇄ iGPU) |
-| **Media Drive Setup** | `/srv/media` and `/srv/llm_models` shares |
-| **System Optimisations** | Tuned, zRAM, BBR, noatime, low-latency kernel |
+- **Automatic ISO Download** – The script fetches the latest Ubuntu and Windows images if not found locally.
+- **Universal Formatting** – Uses DiskPart for robust formatting and exFAT support for any drive size.
+- **Robust Copying** – Uses Robocopy to reliably copy all files and preserve folder structure.
+- **Auto-Elevation** – Automatically relaunches with Administrator privileges when required.
+- **Execution Policy Bypass** – Temporarily adjusts PowerShell policy for smooth script execution.
 
 ---
 
-## 🪟 Windows 11 Pro (dual-boot)
+## 🧰 Files Included
 
-Purpose-built for **Steam + Sunshine** streaming only.  
-All telemetry, bloatware, and background tasks removed.
-
-**Installed Automatically**
-
-- Steam  
-- Sunshine (latest release)  
-- Intel Arc GPU drivers  
-- VC++ / .NET / DirectX runtimes  
-
-**Performance Tweaks**
-
-- Ultimate Performance power plan  
-- Disabled updates, Cortana, Widgets, FeedbackHub  
-- Minimal services set (no SysMain, Search, DiagTrack, etc.)  
-- Visual effects off, animations disabled  
-- Firewall rules for Steam & Sunshine  
+| File | Description |
+|------|-------------|
+| `Make-BootUSB_Ubuntu.ps1` | Main PowerShell script to create the bootable ARC-AIO USB. |
+| `setup_all.sh` | Master setup script executed after booting into Ubuntu from the USB. |
+| `00_prep.sh` – `05_optimisations.sh` | Modular setup scripts for the ARC-AIO system. |
+| `configure_media_drive.sh` | Post-install configuration for media storage and AI model directories. |
+| `README.md` | This documentation file. |
 
 ---
 
-## 🗂️ Folder Layout
+## ⚙️ Prerequisites
 
-```
-/
-├─ setup_all.sh
-├─ 00_prep.sh
-├─ 01_base_install.sh
-├─ 02_services_install.sh
-├─ 03_monitoring_setup.sh
-├─ 04_gpu_modes.sh
-├─ 05_optimisations.sh
-├─ configure_media_drive.sh
-├─ Make-BootUSB_Ubuntu.ps1
-├─ README.md
-└─ windows/
-   ├─ win00_restorepoint.ps1
-   ├─ win01_power_plan.ps1
-   ├─ win02_debloat.ps1
-   ├─ win03_services.ps1
-   ├─ win04_visuals.ps1
-   ├─ win05_runtimes.ps1
-   ├─ win06_apps.ps1
-   ├─ win07_firewall.ps1
-   ├─ win08_updates.ps1
-   ├─ win99_summary.ps1
-   └─ run_all_windows.ps1
-```
+- Windows 10 or 11 (Administrator rights required)
+- PowerShell 5.1 or newer
+- Active internet connection (for ISO download)
+- USB drive (minimum 16GB, 64GB+ recommended)
+- Sufficient disk space for downloaded ISOs (15GB+)
 
 ---
 
-## ⚙️ USB Creation (Windows)
+## 🚀 Usage Instructions
 
-1. Plug in a USB ≥ 16 GB.  
-2. Open PowerShell (Admin).  
+1. **Open PowerShell as Administrator.**
+2. Navigate to the folder containing `Make-BootUSB_Ubuntu.ps1`.
 3. Run:
-
    ```powershell
    Set-ExecutionPolicy Bypass -Scope Process -Force
    .\Make-BootUSB_Ubuntu.ps1
    ```
-
-4. Confirm the target drive when prompted.  
-   - Ubuntu ISO downloads automatically.  
-   - Optional Windows 11 ISO (local or download).  
-   - All scripts + this README copied automatically.
-
-Boot the machine from the USB to install Ubuntu first,  
-then reboot into Windows and run `windows\run_all_windows.ps1`.
+4. Select your USB drive letter when prompted.
+5. The script will automatically download missing ISOs, format the USB, and copy all required setup files.
+6. Once completed, boot your target system from the USB.
 
 ---
 
-## 🚀 Post-Install Commands
+## 🧩 Post-Installation
 
-**Ubuntu**
+After Ubuntu installation completes:
 ```bash
 sudo bash /cdrom/setup/setup_all.sh
-sudo /opt/modes/04_gpu_modes.sh game     # or ai / balanced
 ```
-
-**Windows**
+After Windows installation (if included):
 ```powershell
-cd "C:\AIO_Setup\windows"
-.\run_all_windows.ps1
+C:\AIO_Setup\windows\run_all_windows.ps1
 ```
 
 ---
 
-## 🌐 Browser-Accessible Services
+## 🌐 Services Accessible via Browser
+Once installed, the ARC-AIO system provides the following services locally:
 
-| Service | URL | Purpose |
-|----------|-----|----------|
-| **Sunshine Dashboard** | https://<server-ip>:47990 | Manage game streaming sessions |
-| **Jellyfin Media Server** | http://<server-ip>:8096 | Stream local media library |
-| **Glances Web UI** | http://<server-ip>:61208 | Lightweight system monitor |
-| **Netdata Dashboard** | http://<server-ip>:19999 | Full-stack performance graphs |
-| **Node Exporter** | http://<server-ip>:9100/metrics | Prometheus metrics endpoint |
-| **qBittorrent Web UI** | http://<server-ip>:8080 | Download manager |
-| **LibreHardwareMonitor Bridge** | http://<server-ip>:9525 | Temperature & sensor telemetry |
-| **Samba Media Share** | \\\\<server-ip>\\Media | Network file access |
+| Service | Default Port | Description |
+|----------|---------------|-------------|
+| `Sunshine` | 47989 | Game streaming host compatible with Moonlight. |
+| `Ollama` | 11434 | Local AI model runner (LLMs). |
+| `qBittorrent-nox` | 8080 | Web-based torrent management. |
+| `No-IP` | n/a | Dynamic DNS service for remote access. |
+| `LibreHardwareMonitor Exporter` | 8085 | System metrics for local dashboard. |
 
 ---
 
-## 🧠 Tips
+## 💡 Notes
 
-- **GPU Mode Switch**:  
-  `sudo /opt/modes/04_gpu_modes.sh game|ai|balanced`
-- **No-IP Update**:  
-  Edit `/etc/no-ip2.conf` and run `sudo systemctl restart noip2`.
-- **Logs**:  
-  All stages write to `/var/log/00–05_*.log`.
-- **Windows Restore**:  
-  Use restore point `Pre-AIO-Debloat`.
+- If ISOs fail to download, check your connection or temporarily disable your firewall.
+- The script will always prefer **local ISOs** over downloads.
+- The generated USB is fully compatible with both UEFI and legacy BIOS.
 
 ---
 
-## 🗾 Credits
+## ✅ Summary
+- One-step bootable USB creator.
+- Handles large drives and missing ISOs.
+- Integrates all ARC-AIO setup and monitoring tools.
 
-Built for ARC B580 hybrid servers by  
-**Gail Trueman / 1LG Digital**  
-[GitHub Repo → gpcola/ARC-AIO-Server-Sunshine-Steam-Ollama-Media-No-IP-Ubuntu-24.04-](https://github.com/gpcola/ARC-AIO-Server-Sunshine-Steam-Ollama-Media-No-IP-Ubuntu-24.04-)
-
+**After the USB is created, simply boot from it and let the setup run unattended.**
