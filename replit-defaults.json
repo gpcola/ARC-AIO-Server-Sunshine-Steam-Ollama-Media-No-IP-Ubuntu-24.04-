@@ -1,0 +1,9 @@
+{
+  "5173": {"name": "Preview",  "visible": true},
+  "8080": {"name": "Editor",   "visible": true},
+  "8081": {"name": "Database", "visible": true},
+  "8082": {"name": "Projects", "visible": true},
+  "7860": {"name": "Ollama",   "visible": true},
+  "11434": {"name": "AI API",  "visible": true},
+  "47989": {"name": "Sunshine", "visible": true}
+}
